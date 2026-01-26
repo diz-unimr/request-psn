@@ -43,15 +43,7 @@ pub async fn serve(config: AppConfig) -> anyhow::Result<()> {
         client,
     });
 
-    let router = Router::new()
-        .route("/status", get(status))
-        .merge(api::router())
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth_middleware,
-        ))
-        .with_state(state)
-        .layer(TraceLayer::new_for_http());
+    let router = build_router(state.clone());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     debug!("listening on {}", listener.local_addr()?);
@@ -63,6 +55,18 @@ pub async fn serve(config: AppConfig) -> anyhow::Result<()> {
     .map_err(|e| e.into())
 }
 
+fn build_router(state: Arc<ApiContext>) -> Router {
+    Router::new()
+        .merge(api::router())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .route("/status", get(status))
+        .with_state(state)
+        .layer(TraceLayer::new_for_http())
+}
+
 async fn status(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
     (
         StatusCode::OK,
@@ -71,4 +75,34 @@ async fn status(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
         })),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum_test::TestServer;
+    use serde_json::json;
+    use std::sync::Arc;
+
+    #[sqlx::test]
+    async fn status_test(pool: SqlitePool) {
+        let config = AppConfig::default();
+        let state = Arc::new(ApiContext {
+            client: TtpClient::new(&config.ttp).await.unwrap(),
+            db: pool,
+        });
+
+        // test server
+        let router = build_router(state.clone());
+        let server = TestServer::new(router).unwrap();
+
+        // send request
+        let response = server.get("/status").await;
+
+        // assert
+        response.assert_status_ok();
+        response.assert_json(&json!({
+            "healthy": false,
+        }));
+    }
 }

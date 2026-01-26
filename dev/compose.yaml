@@ -18,6 +18,7 @@ services:
       - "8081:8080"
 
   test-data:
+    profiles: [test]
     image: keinos/sqlite3:latest
     user: root
     volumes:
