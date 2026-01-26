@@ -4,7 +4,6 @@ use serde::Deserialize;
 #[derive(Default, Deserialize, Clone)]
 pub(crate) struct AppConfig {
     pub(crate) log_level: String,
-    // pub(crate) auth: Auth,
     pub(crate) ttp: Ttp,
 }
 

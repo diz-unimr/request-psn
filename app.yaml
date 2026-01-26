@@ -1,5 +1,4 @@
 log_level: info
-base_url: http://localhost:3000
 ttp:
   gpas:
     base_url:
