@@ -28,6 +28,7 @@ RUN addgroup -g $GID $GROUP && \
 WORKDIR /app/
 COPY --from=build /app/target/release/request-psn ./
 COPY ./app.yaml ./
+RUN chown -R $USER:$GROUP /app
 USER $USER
 EXPOSE 3000
 
