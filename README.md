@@ -60,7 +60,7 @@ with double underscore (`__`).
 Docker compose:
 
 ```yaml
-query:
+request-psn:
   image: ghcr.io/diz-unimr/request-psn:latest
   environment:
     LOG_LEVEL: debug
