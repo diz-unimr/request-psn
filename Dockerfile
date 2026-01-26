@@ -33,4 +33,4 @@ EXPOSE 3000
 
 HEALTHCHECK --interval=1m --timeout=10s CMD curl -s http://localhost:3000/status | jq -e .healthy || exit 1
 
-ENTRYPOINT ["/app/psn"]
+ENTRYPOINT ["/app/request-psn"]
