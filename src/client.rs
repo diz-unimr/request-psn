@@ -136,9 +136,9 @@ impl TtpClient {
 
         let response = request.send().await?;
 
-        let bla = response.text().await;
+        let bla = response.text().await?;
 
-        let params: PsnResponse = serde_json::from_str(bla?.as_str())
+        let params: PsnResponse = serde_json::from_str(bla.as_str())
             .map_err(|e| anyhow!("Failed to parse gPAS response: {e}"))?;
         parse_pseudonym(params)
     }

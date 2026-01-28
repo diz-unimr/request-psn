@@ -53,7 +53,6 @@ pub(crate) async fn authenticate(
     client: &str,
     api_key: &str,
 ) -> Result<Option<User>, anyhow::Error> {
-    // get_user(db, client, api_key).await.map_err(From::from)
     validate_credentials(db, client, api_key).await
 }
 
@@ -62,16 +61,16 @@ async fn validate_credentials(
     username: &str,
     password: &str,
 ) -> anyhow::Result<Option<User>> {
-    let clients: Vec<User> = sqlx::query_as("select * from users where name = ?")
+    let users: Vec<User> = sqlx::query_as("select * from users where name = ?")
         .bind(username)
         .fetch_all(pool)
         .await?;
 
-    if clients.is_empty() {
+    if users.is_empty() {
         return Ok(None);
     }
 
-    for user in clients {
+    for user in users {
         let expected = PasswordHash::new(&user.password)?;
         if Argon2::default()
             .verify_password(password.as_bytes(), &expected)
@@ -82,10 +81,4 @@ async fn validate_credentials(
     }
 
     Ok(None)
-}
-
-#[cfg(test)]
-mod tests {
-
-    // todo tests
 }

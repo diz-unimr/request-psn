@@ -80,7 +80,13 @@ async fn status(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{Gpas, Ttp};
+    use axum::http::header;
+    use axum_extra::headers::Authorization;
+    use axum_extra::headers::authorization::{Basic, Credentials};
     use axum_test::TestServer;
+    use httpmock::Method::POST;
+    use httpmock::MockServer;
     use serde_json::json;
     use std::sync::Arc;
 
@@ -104,5 +110,76 @@ mod tests {
         response.assert_json(&json!({
             "healthy": false,
         }));
+    }
+
+    #[sqlx::test(fixtures("users"))]
+    async fn test_pseudonym(pool: SqlitePool) {
+        // gpas mock
+        let ttp_mock = MockServer::start();
+        ttp_mock.mock(|when, then| {
+            when.method(POST)
+                .path("/ttp-fhir/fhir/gpas/$pseudonymizeAllowCreate");
+            then.status(200)
+                .header("content-type", "application/json")
+                .body(
+                    r#"{
+                      "resourceType": "Parameters",
+                      "parameter": [
+                        {
+                          "name": "pseudonym",
+                          "part": [
+                            {
+                              "name": "target",
+                              "valueIdentifier": {
+                                "system": "https://ths-greifswald.de/gpas",
+                                "value": "test"
+                              }
+                            },
+                            {
+                              "name": "original",
+                              "valueIdentifier": {
+                                "system": "https://ths-greifswald.de/gpas",
+                                "value": "test"
+                              }
+                            },
+                            {
+                              "name": "pseudonym",
+                              "valueIdentifier": {
+                                "system": "https://ths-greifswald.de/gpas",
+                                "value": "test-psn"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }"#,
+                );
+        });
+        let config = AppConfig {
+            ttp: Ttp {
+                gpas: Gpas {
+                    base_url: ttp_mock.base_url(),
+                },
+                timeout: 5,
+            },
+            ..Default::default()
+        };
+
+        let client = TtpClient::new(&config.ttp).await.unwrap();
+        let state = Arc::new(ApiContext { client, db: pool });
+        let router = build_router(state);
+        // test server
+        let server = TestServer::new(router).unwrap();
+
+        // send request
+        let basic: Basic = Authorization::basic("project", "test").0;
+        let response = server
+            .get("/request-psn/test")
+            .add_header(header::AUTHORIZATION, basic.encode())
+            .await;
+
+        // assert
+        response.assert_status_ok();
+        response.assert_text("test-psn");
     }
 }
